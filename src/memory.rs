@@ -80,7 +80,8 @@ mod tests {
         let mut mem = init_memory();
         mem.store(0, &[0x01, 0x02, 0x03, 0x04]);
         // should panic because offset n size do not fit the available memory
-        mem.access(1, 5);
+        let m = mem.access(1, 5);
+        println!("{:?}",m);
     }
 
     #[test]
@@ -92,6 +93,31 @@ mod tests {
             [
                 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0
+            ]
+        );
+    }
+
+    #[test]
+    fn test_load_from_offset_1() {
+        let mut mem = init_memory();
+        mem.store(0, &[0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(
+            mem.load(1),
+            [
+                2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0
+            ]
+        );
+    }
+    #[test]
+    fn test_load_from_offset_2() {
+        let mut mem = init_memory();
+        mem.store(0, &[0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(
+            mem.load(3),
+            [
+                4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0,0,0
             ]
         );
     }
