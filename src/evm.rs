@@ -1,20 +1,25 @@
-use alloy_primitives::{U256, Address};
+use alloy_primitives::{Address, U256};
 
 use crate::{memory::Memory, stack::Stack, storage::Storage};
 
-pub struct Log{
-    pub topics : Vec<U256>,
-    pub data : Vec<u8>
+pub enum EvmError {
+    OutOfGas,
+    StackUnderflow,
+    StackOverflow
+}
+pub struct Log {
+    pub topics: Vec<U256>,
+    pub data: Vec<u8>,
 }
 
 pub struct EVM {
     pub pc: usize,
     pub value: U256,
     pub calldata: Vec<u8>,
-    pub gas : u64,
-    pub sender : Address,
+    pub gas: u64,
+    pub sender: Address,
     // sub components
-    pub program : Vec<u8>,
+    pub program: Vec<u8>,
     pub stack: Stack,
     pub memory: Memory,
     pub storage: Storage,
@@ -27,7 +32,13 @@ pub struct EVM {
 }
 
 impl EVM {
-    pub fn new(sender : Address, program : Vec<u8>, gas : u64, value : U256, calldata : Vec<u8>) -> Self {
+    pub fn new(
+        sender: Address,
+        program: Vec<u8>,
+        gas: u64,
+        value: U256,
+        calldata: Vec<u8>,
+    ) -> Self {
         Self {
             pc: 0,
             value,
@@ -44,15 +55,21 @@ impl EVM {
             logs: Vec::new(),
         }
     }
+
+    pub fn gas_dec(&mut self, amount: u64) -> Result<(), EvmError> {
+        if amount > self.gas{
+            return Err(EvmError::OutOfGas);
+        }
+        self.gas -= amount;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
-    fn test_state(){
-        
-    }
+    fn test_state() {}
 }

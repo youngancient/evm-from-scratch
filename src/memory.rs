@@ -1,7 +1,7 @@
 pub struct Memory {
     memory: Vec<u8>,
 }
-
+// FIX: change panics to Err
 impl Memory {
     pub fn new() -> Self {
         Self { memory: Vec::new() }
