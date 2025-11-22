@@ -1,7 +1,9 @@
+use crate::evm::EvmError;
+
 pub struct Memory {
     memory: Vec<u8>,
 }
-// FIX: change panics to Err
+
 impl Memory {
     pub fn new() -> Self {
         Self { memory: Vec::new() }
@@ -12,19 +14,12 @@ impl Memory {
             self.memory.resize(required_len, 0);
         }
     }
-    pub fn access(&self, offset: usize, size: usize) -> &[u8] {
+    pub fn access(&self, offset: usize, size: usize) -> Result<&[u8],EvmError> {
         let end = offset.saturating_add(size);
         if end > self.memory.len() {
-            panic!(
-                "Memory access out of bounds: tried to access {} bytes at offset {} but memory is only {} bytes long",
-                size,
-                offset,
-                self.memory.len()
-            );
+            return Err(EvmError::MemoryOutOfBounds { offset, size, max: self.memory.len() })
         }
-        self.memory
-            .get(offset..end)
-            .expect("Memory bounds check failed unexpectedly after explicit check")
+        Ok(&self.memory[offset..end])
     }
     pub fn load(&mut self, offset: usize) -> [u8; 32] {
         const WORD_SIZE: usize = 32;
@@ -75,13 +70,23 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn test_access_should_fail() {
+    fn test_access_success() {
         let mut mem = init_memory();
         mem.store(0, &[0x01, 0x02, 0x03, 0x04]);
-        // should panic because offset n size do not fit the available memory
-        let m = mem.access(1, 5);
-        println!("{:?}",m);
+        let result = mem.access(1, 3);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(),&[0x02, 0x03, 0x04]);
+    }
+
+    #[test]
+    fn test_access_failure() {
+        let mut mem = init_memory();
+        mem.store(0, &[0x01, 0x02, 0x03, 0x04]);
+        // should return EvmError
+        let result = mem.access(1, 5);
+        assert!(result.is_err());
+        let expected_error = EvmError::MemoryOutOfBounds { offset: 1, size: 5, max: 4 };
+        assert_eq!(result.unwrap_err(), expected_error)
     }
 
     #[test]

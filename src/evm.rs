@@ -2,10 +2,12 @@ use alloy_primitives::{Address, U256};
 
 use crate::{memory::Memory, stack::Stack, storage::Storage};
 
+#[derive(Debug,PartialEq)]
 pub enum EvmError {
     OutOfGas,
     StackUnderflow,
-    StackOverflow
+    StackOverflow,
+    MemoryOutOfBounds { offset: usize, size: usize, max: usize },
 }
 pub struct Log {
     pub topics: Vec<U256>,
