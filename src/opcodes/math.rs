@@ -160,7 +160,7 @@ pub fn exp(vm: &mut EVM) -> Result<(), EvmError> {
 
     // calculate gas
     let exponent_byte_len = size_in_bytes(&exponent);
-    let gas_cost = 10 +  (50 * exponent_byte_len);
+    let gas_cost = 10 + (50 * exponent_byte_len);
     vm.gas_dec(gas_cost)?;
 
     let result = base.pow(exponent);
@@ -173,7 +173,35 @@ pub fn exp(vm: &mut EVM) -> Result<(), EvmError> {
 }
 
 pub fn signextend(vm: &mut EVM) -> Result<(), EvmError> {
-    todo!()
+    vm.gas_dec(5)?;
+    // pop the 2 values
+    let size_marker = vm.stack.pop()?;
+    let value: alloy_primitives::Uint<256, 4> = vm.stack.pop()?;
+    let result;
+    if size_marker < U256::from(31) {
+        let byte_index = size_marker.to::<usize>();
+        // Calculate which bit is the "Sign Bit"
+        // (byte_index * 8) gets us to the start of the byte
+        // + 7 gets us to the most significant bit of that byte
+        let bit_index = (byte_index * 8) + 7;
+        // Logic: (1 << (7 + 1)) - 1  =  256 - 1  =  255 (0xFF)
+        let mask = (U256::ONE << (bit_index + 1)) - U256::ONE;
+        if value.bit(bit_index){
+            // the number is negative
+            result = value | !mask;
+        }else {
+            // the number is positive
+            result = value & mask;
+        }
+
+    } else {
+        // if the size is greater or equals 31, the number is of full width already
+        // no extension is needed
+        result = value;
+    }
+    vm.stack.push(result)?;
+    vm.pc += 1;
+    Ok(())
 }
 
 #[cfg(test)]
