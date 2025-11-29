@@ -8,6 +8,7 @@ pub enum EvmError {
     StackUnderflow,
     StackOverflow,
     MemoryOutOfBounds { offset: usize, size: usize, max: usize },
+    ReturnDataOutOfBounds { offset: usize, size: usize, max: usize },
 }
 pub struct Log {
     pub topics: Vec<U256>,

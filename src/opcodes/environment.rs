@@ -162,8 +162,37 @@ pub fn ext_code_size(vm: &mut EVM) -> Result<(), EvmError> {
     Ok(())
 }
 
+// copies size bytes from ext_code into memory
+// pads result with zeros if not up to the required bytes
 pub fn ext_code_copy(vm: &mut EVM) -> Result<(), EvmError> {
-    todo!()
+    let _address = vm.stack.pop()?;
+    let dest_offset_raw = vm.stack.pop()?;
+    let src_offset_raw = vm.stack.pop()?;
+    let size_raw = vm.stack.pop()?;
+
+    let ext_code = [];  // no external code, just a mock
+
+    let src_offset = src_offset_raw.saturating_to::<usize>();
+    let size = size_raw.saturating_to::<usize>();
+    let dest_offset = dest_offset_raw.saturating_to::<usize>();
+    
+    let mut data = vec![0u8;size];
+    if src_offset < ext_code.len(){
+        let available_bytes = ext_code.len() - src_offset;
+        let copy_len = min(size, available_bytes);
+        let copy_slice = &ext_code[src_offset..src_offset + copy_len];
+        data[..copy_len].copy_from_slice(copy_slice);
+    }
+    // store copied ext_code in memory
+    let expansion_cost = vm.memory.store(dest_offset, &data);
+    // calculate gas
+    let min_word_size = (size as u64 + 31) / 32;
+    let dynamic_gas = 3 * min_word_size + expansion_cost;
+    let static_gas = 3u64;
+    vm.gas_dec(dynamic_gas + static_gas)?;
+    
+    vm.pc += 1;
+    Ok(())
 }
 
 pub fn return_data_size(vm: &mut EVM) -> Result<(), EvmError> {
@@ -174,6 +203,7 @@ pub fn return_data_size(vm: &mut EVM) -> Result<(), EvmError> {
 }
 
 // Stores a specified part of the previous return data in memory
+// unlike call_data_copy, it does not pad with zeros
 pub fn return_data_copy(vm: &mut EVM) -> Result<(), EvmError> {
     let dest_offset_raw = vm.stack.pop()?;
     let src_offset_raw = vm.stack.pop()?;
@@ -183,14 +213,33 @@ pub fn return_data_copy(vm: &mut EVM) -> Result<(), EvmError> {
     let src_offset = src_offset_raw.saturating_to::<usize>();
     let size = size_raw.saturating_to::<usize>();
 
-    let data = vec![0u8;size];
-    if  src_offset < vm.program.len(){
-        
+    let end_index = src_offset.saturating_add(size);
+
+    // if the end_index i.e offset + size specified to be copied off the return_data array is
+    //  bigger than the array content, return error. Padding with zero does not happen here!
+    if end_index > vm.return_data.len() {
+        return Err(EvmError::ReturnDataOutOfBounds {
+            offset: src_offset,
+            size,
+            max: vm.return_data.len(),
+        });
     }
-    todo!()
+    // gas cost
+    let expansion_cost = vm.memory.ensure_capacity(src_offset, size);
+    let min_word_size = (size as u64 + 31) /32;
+    let dynamic_gas = 3 * min_word_size + expansion_cost;
+    let static_gas = 3u64;
+    vm.gas_dec(dynamic_gas + static_gas )?;
+
+    // slice return_data, cos we've checked for outOfBound case
+    let data = &vm.return_data[src_offset..end_index];
+    // Since we already paid for expansion above, we ignore the return value here
+    vm.memory.store(dest_offset, data);
+    vm.pc += 1;
+    Ok(())
 }
 
-// The hash of another program given by its address. 
+// The hash of another program given by its address.
 // There are no other programs in our simplified world so we simply return 0.
 pub fn ext_code_hash(vm: &mut EVM) -> Result<(), EvmError> {
     let _address = vm.stack.pop()?;
@@ -200,4 +249,4 @@ pub fn ext_code_hash(vm: &mut EVM) -> Result<(), EvmError> {
     Ok(())
 }
 
-// blockhash, coinbase, timestamp, prevrandao
+// leave out blockhash, coinbase, timestamp, prevrandao: for Now

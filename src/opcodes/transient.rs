@@ -2,6 +2,7 @@
 
 use crate::evm::{EVM, EvmError};
 
+// loads data from storage to stack
 pub fn tload(vm : &mut EVM) -> Result<(), EvmError>{
     vm.gas_dec(100)?;
     let key = vm.stack.pop()?;
@@ -11,6 +12,7 @@ pub fn tload(vm : &mut EVM) -> Result<(), EvmError>{
     Ok(())
 }
 
+// stores data in storage
 pub fn tstore(vm : &mut EVM) -> Result<(), EvmError>{
     vm.gas_dec(100)?;
     let key = vm.stack.pop()?;
