@@ -1,17 +1,17 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use alloy_primitives::U256;
+use alloy_primitives::{U256};
 
 pub struct Storage {
     storage: HashMap<U256, U256>,
-    cache: Vec<U256>,
+    cache: HashSet<U256>,
 }
 
 impl Storage {
     pub fn new() -> Self {
         Storage {
             storage: HashMap::new(),
-            cache: Vec::new(),
+            cache: HashSet::new(),
         }
     }
 
@@ -19,19 +19,21 @@ impl Storage {
         *self.storage.get(&key).unwrap_or(&U256::ZERO)
     }
     pub fn load(&mut self, key: U256) -> (bool, U256) {
-        let is_warm = self.cache.contains(&key);
-        if !is_warm {
-            self.cache.push(key);
-        }
+        // .insert() returns true if the value was NEW (Cold).
+        // It returns false if the value was ALREADY THERE (Warm).
+        let is_warm = !self.cache.insert(key);
         return (is_warm, self.load_raw(key));
     }
 
-    pub fn store(&mut self, key: U256, value: U256) {
+    pub fn store(&mut self, key: U256, value: U256) -> (bool, U256) {
+        let is_warm = !self.cache.insert(key);
+        let old_value = self.load_raw(key);
         if value == U256::ZERO {
             self.storage.remove(&key);
         } else {
             self.storage.insert(key, value);
         }
+        (is_warm, old_value)
     }
 }
 
@@ -65,8 +67,8 @@ mod tests {
         let key = U256::from(1);
         let val = U256::from(420);
         evm_storage.store(key, val);
-        assert_eq!(evm_storage.load(key), (false, val));    // cold
-        assert_eq!(evm_storage.cache.len(),1);      // key cached
-        assert_eq!(evm_storage.load(key), (true, val));    // warm after first access
+        assert_eq!(evm_storage.load(key), (false, val)); // cold
+        assert_eq!(evm_storage.cache.len(), 1); // key cached
+        assert_eq!(evm_storage.load(key), (true, val)); // warm after first access
     }
 }

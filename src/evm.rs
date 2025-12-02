@@ -20,6 +20,7 @@ pub struct EVM {
     pub value: U256,
     pub calldata: Vec<u8>,
     pub gas: u64,
+    pub refund: u64,    // refunds can not pay for transactions themselves, they like vouchers given on transaction execution
     pub sender: Address,
     // sub components
     pub program: Vec<u8>,
@@ -49,6 +50,7 @@ impl EVM {
             calldata,
             program,
             gas,
+            refund : 0,
             stop_flag: false,
             revert_flag: false,
             stack: Stack::new(),
