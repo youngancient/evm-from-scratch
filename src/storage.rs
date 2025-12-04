@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use alloy_primitives::{U256};
+use alloy_primitives::U256;
 
 pub struct Storage {
     storage: HashMap<U256, U256>,
@@ -34,6 +34,14 @@ impl Storage {
             self.storage.insert(key, value);
         }
         (is_warm, old_value)
+    }
+    // read-only helper to calculate SSTORE gas requirements
+    // does not modify storage state
+    pub fn peek(&self, key: &U256) -> (bool, U256) {
+        let is_warm = self.cache.contains(key);
+
+        let value = *self.storage.get(key).unwrap_or(&U256::ZERO);
+        (is_warm, value)
     }
 }
 

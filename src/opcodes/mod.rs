@@ -15,3 +15,4 @@ pub mod stop;
 pub mod storage;
 pub mod swap;
 pub mod transient;
+pub mod opcodes;

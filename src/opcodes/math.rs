@@ -109,6 +109,7 @@ pub fn smod(vm: &mut EVM) -> Result<(), EvmError> {
 
     let result = a % b;
     vm.stack.push(result.into_raw())?;
+    vm.pc += 1;
     Ok(())
 }
 
@@ -118,11 +119,10 @@ pub fn add_mod(vm: &mut EVM) -> Result<(), EvmError> {
     let a = vm.stack.pop()?;
     let b = vm.stack.pop()?;
     let n = vm.stack.pop()?;
-    let addition_result = a.wrapping_add(b);
     let result = if n == U256::ZERO {
         U256::ZERO
     } else {
-        addition_result % n
+        a.add_mod(b, n)
     };
 
     vm.stack.push(result)?;
@@ -136,11 +136,10 @@ pub fn mul_mod(vm: &mut EVM) -> Result<(), EvmError> {
     let a = vm.stack.pop()?;
     let b = vm.stack.pop()?;
     let n = vm.stack.pop()?;
-    let mul_result = a.wrapping_mul(b);
     let result = if n == U256::ZERO {
         U256::ZERO
     } else {
-        mul_result % n
+        a.mul_mod(b, n)
     };
 
     vm.stack.push(result)?;
@@ -186,14 +185,13 @@ pub fn signextend(vm: &mut EVM) -> Result<(), EvmError> {
         let bit_index = (byte_index * 8) + 7;
         // Logic: (1 << (7 + 1)) - 1  =  256 - 1  =  255 (0xFF)
         let mask = (U256::ONE << (bit_index + 1)) - U256::ONE;
-        if value.bit(bit_index){
+        if value.bit(bit_index) {
             // the number is negative
             result = value | !mask;
-        }else {
+        } else {
             // the number is positive
             result = value & mask;
         }
-
     } else {
         // if the size is greater or equals 31, the number is of full width already
         // no extension is needed

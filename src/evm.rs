@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use alloy_primitives::{Address, U256};
 
@@ -52,6 +52,7 @@ pub struct EVM {
     pub stack: Stack,
     pub memory: Memory,
     pub storage: Storage,
+    pub transient_storage : HashMap<U256,U256>,
     // flags
     pub stop_flag: bool,
     pub revert_flag: bool,
@@ -85,6 +86,7 @@ impl EVM {
             stack: Stack::new(),
             memory: Memory::new(),
             storage: Storage::new(),
+            transient_storage : HashMap::new(),
             return_data: Vec::new(),
             logs: Vec::new(),
         }
@@ -105,8 +107,9 @@ impl EVM {
         self.stack = Stack::new();
         self.memory = Memory::new();
         self.storage = Storage::new();
+        self.transient_storage = HashMap::new()
     }
-    pub fn should_execute_next_opcode(self) -> bool {
+    pub fn should_execute_next_opcode(&self) -> bool {
         if self.pc > (self.program.len() - 1) {
             // means pc has reached the max program length
             return false;
@@ -115,6 +118,14 @@ impl EVM {
             return false;
         }
         true
+    }
+    pub fn run(&mut self){
+        while self.should_execute_next_opcode(){
+            let opcode = self.program[self.pc];
+            // match opcode {
+                
+            // }
+        }
     }
 }
 

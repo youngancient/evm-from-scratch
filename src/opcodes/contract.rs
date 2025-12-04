@@ -15,6 +15,7 @@ pub fn revert(vm: &mut EVM) -> Result<(), EvmError> {
     vm.revert_flag = true;
     vm.stop_flag = true;
 
-    vm.pc += 1;
+    // vm.pc += 1;      <- deleted cos since the revert_flag and stop_flag are true, the execution should be stopped
+    // i.e the vm wont check pc again
     Ok(())
 }
