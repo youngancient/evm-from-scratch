@@ -1,19 +1,43 @@
+use std::fmt::Debug;
+
 use alloy_primitives::{Address, U256};
 
 use crate::{memory::Memory, stack::Stack, storage::Storage};
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum EvmError {
     OutOfGas,
     StackUnderflow,
     StackOverflow,
-    MemoryOutOfBounds { offset: usize, size: usize, max: usize },
-    ReturnDataOutOfBounds { offset: usize, size: usize, max: usize },
-    BadJumpDestination {dest : usize, reason : String}
+    MemoryOutOfBounds {
+        offset: usize,
+        size: usize,
+        max: usize,
+    },
+    ReturnDataOutOfBounds {
+        offset: usize,
+        size: usize,
+        max: usize,
+    },
+    BadJumpDestination {
+        dest: usize,
+        reason: String,
+    },
 }
 pub struct Log {
     pub topics: Vec<U256>,
     pub data: Vec<u8>,
+}
+impl Log {
+    pub fn new(data: Vec<u8>, topics: Vec<U256>) -> Self {
+        Self { topics, data }
+    }
+}
+
+impl Debug for Log {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Log: Topics: {:?} | Data: {:?}", self.topics, self.data)
+    }
 }
 
 pub struct EVM {
@@ -21,7 +45,7 @@ pub struct EVM {
     pub value: U256,
     pub calldata: Vec<u8>,
     pub gas: u64,
-    pub refund: u64,    // refunds can not pay for transactions themselves, they like vouchers given on transaction execution
+    pub refund: u64, // refunds can not pay for transactions themselves, they like vouchers given on transaction execution
     pub sender: Address,
     // sub components
     pub program: Vec<u8>,
@@ -37,8 +61,8 @@ pub struct EVM {
 }
 
 // todos:
-// opcodes left: Push, Swap and Log
-// EVM functions left: run 
+// opcodes left: Swap and Log
+// EVM functions left: run
 
 impl EVM {
     pub fn new(
@@ -55,7 +79,7 @@ impl EVM {
             calldata,
             program,
             gas,
-            refund : 0,
+            refund: 0,
             stop_flag: false,
             revert_flag: false,
             stack: Stack::new(),
@@ -67,26 +91,27 @@ impl EVM {
     }
 
     pub fn gas_dec(&mut self, amount: u64) -> Result<(), EvmError> {
-        if amount > self.gas{
+        if amount > self.gas {
             return Err(EvmError::OutOfGas);
         }
         self.gas -= amount;
         Ok(())
     }
-    pub fn peek(&self) -> u8{
+    pub fn peek(&self) -> u8 {
         self.program[self.pc]
     }
-    pub fn reset(&mut self){
+    pub fn reset(&mut self) {
         self.pc = 0;
         self.stack = Stack::new();
         self.memory = Memory::new();
         self.storage = Storage::new();
     }
-    pub fn should_execute_next_opcode(self) -> bool{
-        if self.pc > (self.program.len() - 1){  // means pc has reached the max program length
+    pub fn should_execute_next_opcode(self) -> bool {
+        if self.pc > (self.program.len() - 1) {
+            // means pc has reached the max program length
             return false;
         }
-        if self.stop_flag || self.revert_flag{
+        if self.stop_flag || self.revert_flag {
             return false;
         }
         true

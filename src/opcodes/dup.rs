@@ -1,5 +1,6 @@
 use crate::evm::{EVM, EvmError};
 
+// DUP N
 // Duplicate a stack item by putting it on top of the stack.
 // DUP1 means duplicate the first item on the stack; so we peek at the offset 0
 // DUP2 means duplicate the first item on the stack; so we peek at the offset 1

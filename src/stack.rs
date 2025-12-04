@@ -5,7 +5,7 @@ use crate::evm::EvmError;
 pub const MAXIMUM_STACK_SIZE: usize = 1024;
 #[derive(Debug, Clone)]
 pub struct Stack {
-    items: Vec<U256>,
+    pub items: Vec<U256>,
 }
 
 impl Stack {
