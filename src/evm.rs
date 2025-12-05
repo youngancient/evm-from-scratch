@@ -2,7 +2,41 @@ use std::{collections::HashMap, fmt::Debug};
 
 use alloy_primitives::{Address, U256};
 
-use crate::{memory::Memory, stack::Stack, storage::Storage};
+use crate::{
+    memory::Memory,
+    opcodes::{
+        bit::{byte, sar, shl, shr},
+        comparisons::{eq, gt, is_zero, lt, sgt, slt},
+        contract::revert,
+        environment::{
+            address, balance, call_data_copy, call_data_load, call_data_size, call_value,
+            code_copy, code_size, ext_code_copy, ext_code_hash, gas_price, return_data_copy,
+            return_data_size,
+        },
+        jump::{jump, jump_dest, jumpi, pc},
+        log::log,
+        logic::{and, not, or, xor},
+        math::{add, add_mod, div, mul, mul_mod, sdiv, signextend, smod, sub, vm_mod},
+        memory::{mload, mstore, mstore8},
+        misc::sha3,
+        opcodes::{
+            ADD, ADDMOD, ADDRESS, AND, BALANCE, BYTE, CALLDATACOPY, CALLDATALOAD, CALLDATASIZE,
+            CALLVALUE, CODECOPY, CODESIZE, DIV, DUP1, DUP16, EQ, EXTCODECOPY, EXTCODEHASH,
+            GASPRICE, GT, ISZERO, JUMP, JUMPDEST, JUMPI, LOG0, LOG4, LT, MLOAD, MOD, MSTORE,
+            MSTORE8, MUL, MULMOD, NOT, OR, ORIGIN, PC, POP, PUSH1, PUSH32, RETURNDATACOPY,
+            RETURNDATASIZE, REVERT, SAR, SDIV, SGT, SHA3, SHL, SHR, SIGNEXTEND, SLOAD, SLT, SMOD,
+            SSTORE, STOP, SUB, SWAP1, SWAP16, TLOAD, TSTORE, XOR,
+        },
+        pop::pop,
+        push::push,
+        stop::stop,
+        storage::{s_store, sload},
+        swap::swap,
+        transient::{tload, tstore},
+    },
+    stack::Stack,
+    storage::Storage,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum EvmError {
@@ -22,6 +56,9 @@ pub enum EvmError {
     BadJumpDestination {
         dest: usize,
         reason: String,
+    },
+    UnknownOpcode {
+        opcode: String,
     },
 }
 pub struct Log {
@@ -52,7 +89,7 @@ pub struct EVM {
     pub stack: Stack,
     pub memory: Memory,
     pub storage: Storage,
-    pub transient_storage : HashMap<U256,U256>,
+    pub transient_storage: HashMap<U256, U256>,
     // flags
     pub stop_flag: bool,
     pub revert_flag: bool,
@@ -86,7 +123,7 @@ impl EVM {
             stack: Stack::new(),
             memory: Memory::new(),
             storage: Storage::new(),
-            transient_storage : HashMap::new(),
+            transient_storage: HashMap::new(),
             return_data: Vec::new(),
             logs: Vec::new(),
         }
@@ -119,13 +156,107 @@ impl EVM {
         }
         true
     }
-    pub fn run(&mut self){
-        while self.should_execute_next_opcode(){
+    pub fn run(&mut self) -> Result<(), EvmError> {
+        while self.should_execute_next_opcode() {
             let opcode = self.program[self.pc];
-            // match opcode {
-                
-            // }
+            match opcode {
+                // STOP
+                STOP => stop(self)?,
+                // MATH
+                ADD => add(self)?,
+                SUB => sub(self)?,
+                MUL => mul(self)?,
+                SMOD => smod(self)?,
+                DIV => div(self)?,
+                SDIV => sdiv(self)?,
+                MOD => vm_mod(self)?,
+                ADDMOD => add_mod(self)?,
+                MULMOD => mul_mod(self)?,
+                SIGNEXTEND => signextend(self)?,
+                // BIT
+                BYTE => byte(self)?,
+                SHL => shl(self)?,
+                SHR => shr(self)?,
+                SAR => sar(self)?,
+                // LOGIC
+                LT => lt(self)?,
+                SLT => slt(self)?,
+                GT => gt(self)?,
+                SGT => sgt(self)?,
+                EQ => eq(self)?,
+                ISZERO => is_zero(self)?,
+                // DUP
+                DUP1..=DUP16 => {
+                    // let n =
+                }
+                // ENVIRONMENT
+                ADDRESS => address(self)?,
+                BALANCE => balance(self)?,
+                ORIGIN => balance(self)?,
+                CALLVALUE => call_value(self)?,
+                CALLDATALOAD => call_data_load(self)?,
+                CALLDATASIZE => call_data_size(self)?,
+                CALLDATACOPY => call_data_copy(self)?,
+                CODESIZE => code_size(self)?,
+                CODECOPY => code_copy(self)?,
+                GASPRICE => gas_price(self)?,
+                EXTCODECOPY => ext_code_copy(self)?,
+                EXTCODEHASH => ext_code_hash(self)?,
+                RETURNDATACOPY => return_data_copy(self)?,
+                RETURNDATASIZE => return_data_size(self)?,
+                // JUMP
+                JUMP => jump(self)?,
+                JUMPI => jumpi(self)?,
+                JUMPDEST => jump_dest(self)?,
+                PC => pc(self)?,
+                // LOG
+                LOG0..=LOG4 => {
+                    // calculate n dynamically
+                    let n = (opcode - LOG0) as usize; // there's no need to add 1, since LOG is 0-indexed
+                    log(self, n)?;
+                }
+                // LOGIC
+                AND => and(self)?,
+                OR => or(self)?,
+                XOR => xor(self)?,
+                NOT => not(self)?,
+                // MEMORY
+                MLOAD => mload(self)?,
+                MSTORE => mstore(self)?,
+                MSTORE8 => mstore8(self)?,
+                // MISC
+                SHA3 => sha3(self)?,
+                // POP
+                POP => pop(self)?,
+                // PUSH
+                PUSH1..=PUSH32 => {
+                    // calculate n dynamically
+                    let n = (opcode - PUSH1 + 1) as usize; // 1 is added because PUSH is 1-indexed
+                    push(self, n)?;
+                }
+                // STORAGE
+                SLOAD => sload(self)?,
+                SSTORE => s_store(self)?,
+                // SWAP
+                SWAP1..=SWAP16 => {
+                    // calculate n dynamically
+                    // 0x90 - 0x90 + 1 = SWAP 1
+                    // 0X91 - 0X90 + 1 = SWAP 2
+                    let n = (opcode - SWAP1 + 1) as usize; // 1 is added because SWAP is 1-indexed
+                    swap(self, n)?;
+                }
+                // TRANSIENT
+                TLOAD => tload(self)?,
+                TSTORE => tstore(self)?,
+                REVERT => revert(self)?,
+                _ => {
+                    return Err(EvmError::UnknownOpcode {
+                        opcode: format!("0x{:02x}", opcode),
+                    });
+                }
+            }
         }
+        Ok(())
     }
 }
 

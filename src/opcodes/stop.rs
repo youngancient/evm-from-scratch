@@ -1,5 +1,6 @@
-use crate::evm::EVM;
+use crate::evm::{EVM, EvmError};
 
-pub fn stop(machine: &mut EVM) {
-    machine.stop_flag = true;
+pub fn stop(vm: &mut EVM) -> Result<(), EvmError> {
+    vm.stop_flag = true;
+    Ok(())
 }
