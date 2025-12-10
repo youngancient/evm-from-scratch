@@ -20,12 +20,12 @@ use std::{io, time::Duration};
 
 // Users can edit this
 fn user_input() -> (Vec<u8>, u64) {
-    let program = vec![
-        0x60, 0x69,
-        0x60, 0x01, 
-        0x55,
-        ];
-    // let program = vec![0x50];
+    // let program = vec![
+    //     0x60, 0x69,
+    //     0x60, 0x01, 
+    //     0x55,
+    //     ];
+    let program = vec![0x50];
     let desired_gas = 25000;
     (program, desired_gas)
 }
@@ -98,8 +98,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, evm: &mut EVM, initial_gas: u
             // --- WIDGET 1: BYTECODE (Stateful!) ---
             let code_items: Vec<ListItem> = evm.program.iter().enumerate().map(|(i, &byte)| {
                 // HEX Index + HEX Value 
-                // Example: 0000: 60 [PUSH1]
-                let content = format!("{:04x}: {:02x}", i, byte);
+                // Example: 0000: 0x60
+                let content = format!("{:04x}: {:#04x}", i, byte);
 
                 let style = if i == evm.pc { 
                     Style::default().fg(Color::Yellow).bg(Color::DarkGray).add_modifier(Modifier::BOLD) 
@@ -162,7 +162,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, evm: &mut EVM, initial_gas: u
 
                 // Render Popup
                 let area = centered_rect(60, 30, f.area());
-                let popup = Paragraph::new(format!("{}\n\nReason: {}", title, msg))
+                let popup = Paragraph::new(format!("\nReason: {}", msg))
                     .style(Style::default().bg(color).fg(Color::Black)) // Black text on Color background
                     .block(Block::default().borders(Borders::ALL).title(title));
                 f.render_widget(Clear, area);
