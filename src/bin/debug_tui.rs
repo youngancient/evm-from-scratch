@@ -1,6 +1,4 @@
-// src/bin/debug_tui.rs
-
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, U256, hex};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -10,44 +8,34 @@ use evm::{evm::EVM, helpers::get_supported_opcode_name};
 use ratatui::{
     Terminal,
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout,Position},
     style::{Color, Modifier, Style},
     text::{Span},
     widgets::{Block, Borders,Clear, List, ListItem, Paragraph, ListState},
 };
 use std::{io, time::Duration};
 
-
-// Users can edit this
-fn user_input() -> (Vec<u8>, u64) {
-    let program = vec![
-        0x59, 0x69,
-        0x60, 0x01, 
-        0x55,
-        ];
-    // let program = vec![0x50];
-    let desired_gas = 25000;
-    (program, desired_gas)
-}
-
 fn main() -> Result<(), anyhow::Error> {
-    // PUSH1 10, PUSH1 20, ADD
-    let (program, desired_gas) = user_input();
-
-    // 1. Setup EVM passing in the program and desired_gas
-    let mut evm = EVM::new(Address::ZERO, program, desired_gas, U256::ZERO, vec![]);
-
-    // 2. Setup Terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // 3. Run the UI Loop
-    let res = run_app(&mut terminal, &mut evm, desired_gas);
+    // RUN SETUP WIZARD
+    let setup_res = run_setup_wizard(&mut terminal);
 
-    // 4. Cleanup Terminal
+    // Run the UI Loop
+    if let Ok(Some((program, desired_gas))) = setup_res {
+        let mut evm = EVM::new(Address::ZERO, program, desired_gas, U256::ZERO, vec![]);
+        
+        // Run the Main Debugger Loop
+        let res = run_app(&mut terminal, &mut evm, desired_gas);
+        if let Err(err) = res {
+            println!("Runtime Error: {:?}", err);
+        }
+    }
+    // Cleanup Terminal
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -56,14 +44,241 @@ fn main() -> Result<(), anyhow::Error> {
     )?;
     terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{:?}", err)
-    }
-
     Ok(())
 }
 
 
+// --- SETUP WIZARD LOGIC ---
+
+enum SetupStage {
+    ModeSelect,
+    SampleSelect,
+    ManualInput,
+    GasInput,
+}
+
+struct SampleProgram {
+    name: &'static str,
+    code: Vec<u8>,
+}
+
+fn run_setup_wizard<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<Option<(Vec<u8>, u64)>> {
+    let mut stage = SetupStage::ModeSelect;
+    
+    // UI States
+    let mut mode_index = 0; // 0: Samples, 1: Manual
+    let mut sample_state = ListState::default();
+    sample_state.select(Some(0));
+    
+    // Input Buffers
+    let mut input_buffer = String::new();
+    let mut selected_program: Vec<u8> = Vec::new();
+
+    // Data: Samples
+    let samples = vec![
+        SampleProgram { 
+            name: "Grand Tour (Math, Mem, Storage)", 
+            code: vec![
+                0x60, 0x0A, 0x60, 0x14, 0x01, 0x60, 0x00, 0x52, 0x60, 0x1E, 
+                0x60, 0x01, 0x55, 0x60, 0x00, 0x51, 0x60, 0x01, 0x01, 0x60, 
+                0x20, 0x52, 0x60, 0x01, 0x54, 0x60, 0x02, 0x02, 0x60, 0x02, 0x55, 0x00
+            ] 
+        },
+        SampleProgram { 
+            name: "Countdown Loop (Jumps)", 
+            code: vec![
+                0x60, 0x05, 0x5B, 0x80, 0x15, 0x60, 0x0F, 0x57, 0x60, 0x01, 
+                0x90, 0x03, 0x60, 0x02, 0x56, 0x5B, 0x00 
+            ] 
+        },
+        SampleProgram {
+            name: "Simple Memory Interaction",
+            code: vec![0x60, 0xFF, 0x60, 0x00, 0x52, 0x60, 0x00, 0x51]
+        }
+    ];
+
+    loop {
+        terminal.draw(|f| {
+            // Background
+            let size = f.area();
+            let block = Block::default().title(" rsevm Setup ").borders(Borders::ALL);
+            f.render_widget(block, size);
+
+            let area = centered_rect(60, 40, size);
+
+            match stage {
+                SetupStage::ModeSelect => {
+                    let title = Paragraph::new("Welcome to rsevm!\n\nSelect Input Mode:")
+                        .style(Style::default().add_modifier(Modifier::BOLD))
+                        .alignment(ratatui::layout::Alignment::Center);
+                    
+                    // Simple manual list rendering
+                    let modes = vec![" Use Sample Program ", " Enter Bytecode Manually "];
+                    let items: Vec<ListItem> = modes.iter().enumerate().map(|(i, m)| {
+                        let style = if i == mode_index { 
+                            Style::default().fg(Color::Black).bg(Color::Cyan) 
+                        } else { 
+                            Style::default() 
+                        };
+                        ListItem::new(Span::styled(*m, style))
+                    }).collect();
+                    
+                    let list = List::new(items)
+                        .block(Block::default().borders(Borders::ALL).title(" Mode Selection "));
+                    
+                    let chunks = Layout::default()
+                        .constraints([Constraint::Length(4), Constraint::Min(0)].as_ref())
+                        .split(area);
+                    
+                    f.render_widget(title, chunks[0]);
+                    f.render_widget(list, chunks[1]);
+                },
+
+                SetupStage::SampleSelect => {
+                    let items: Vec<ListItem> = samples.iter().map(|s| {
+                        ListItem::new(s.name)
+                    }).collect();
+                    
+                    let list = List::new(items)
+                        .block(Block::default().borders(Borders::ALL).title(" Select Sample "))
+                        .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan));
+                    
+                    f.render_stateful_widget(list, area, &mut sample_state);
+                },
+
+                SetupStage::ManualInput => {
+                    let instructions = Paragraph::new("Enter Bytecode (Hex string, e.g., '60ff01'):\n(Press Enter to Confirm)")
+                        .alignment(ratatui::layout::Alignment::Center);
+                    
+                    let input = Paragraph::new(input_buffer.as_str())
+                        .style(Style::default().fg(Color::Yellow))
+                        .block(Block::default().borders(Borders::ALL).title(" Input "));
+
+                    let chunks = Layout::default()
+                        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+                        .split(area);
+                    
+                    f.render_widget(instructions, chunks[0]);
+                    f.render_widget(input, chunks[1]);
+
+                    // Make cursor blink at end of input
+                    f.set_cursor_position(
+                        Position::new(chunks[1].x + input_buffer.len() as u16 + 1,
+                        chunks[1].y + 1)
+                    )
+                },
+
+                SetupStage::GasInput => {
+                    let instructions = Paragraph::new("Enter Gas Limit (Default: 25000):")
+                        .alignment(ratatui::layout::Alignment::Center);
+                    
+                    let input = Paragraph::new(input_buffer.as_str())
+                        .style(Style::default().fg(Color::Green))
+                        .block(Block::default().borders(Borders::ALL).title(" Gas "));
+
+                    let chunks = Layout::default()
+                        .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+                        .split(area);
+                    
+                    f.render_widget(instructions, chunks[0]);
+                    f.render_widget(input, chunks[1]);
+                     
+                    f.set_cursor_position(
+                        Position::new(chunks[1].x + input_buffer.len() as u16 + 1,
+                        chunks[1].y + 1)
+                    )
+                }
+            }
+        })?;
+
+        // Input Handling
+        if let Event::Key(key) = event::read()? {
+            if key.code == KeyCode::Esc {
+                return Ok(None); // Quit
+            }
+
+            match stage {
+                SetupStage::ModeSelect => {
+                    match key.code {
+                        KeyCode::Up => if mode_index > 0 { mode_index -= 1 },
+                        KeyCode::Down => if mode_index < 1 { mode_index += 1 },
+                        KeyCode::Enter => {
+                            if mode_index == 0 { stage = SetupStage::SampleSelect; }
+                            else { 
+                                stage = SetupStage::ManualInput; 
+                                input_buffer.clear(); 
+                            }
+                        }
+                        _ => {}
+                    }
+                },
+                SetupStage::SampleSelect => {
+                    match key.code {
+                        KeyCode::Up => {
+                            let i = sample_state.selected().unwrap_or(0);
+                            if i > 0 { sample_state.select(Some(i - 1)); }
+                        },
+                        KeyCode::Down => {
+                            let i = sample_state.selected().unwrap_or(0);
+                            if i < samples.len() - 1 { sample_state.select(Some(i + 1)); }
+                        },
+                        KeyCode::Enter => {
+                            let i = sample_state.selected().unwrap_or(0);
+                            selected_program = samples[i].code.clone();
+                            stage = SetupStage::GasInput;
+                            input_buffer = "25000".to_string(); // Default gas
+                        },
+                        _ => {}
+                    }
+                },
+                SetupStage::ManualInput => {
+                    match key.code {
+                        KeyCode::Char(c) => {
+                            if c.is_digit(16) || c == 'x' || c == 'X' { input_buffer.push(c); } // Only allow hex
+                        },
+                        KeyCode::Backspace => { input_buffer.pop(); },
+                        KeyCode::Enter => {
+                            if !input_buffer.is_empty() {
+                                // remove unnecessary user parsed elements
+                                let clean_input = input_buffer
+                                .trim()
+                                .replace(" ", "")
+                                .replace("0x", "")
+                                .replace("0X", "");
+                                // Parse Hex
+                                if let Ok(bytes) = hex::decode(&clean_input) {
+                                    selected_program = bytes;
+                                    stage = SetupStage::GasInput;
+                                    input_buffer = "25000".to_string(); // Reset buffer for gas
+                                } else {
+                                    // Should ideally show error, but simple retry for now
+                                    input_buffer.clear(); 
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
+                },
+                SetupStage::GasInput => {
+                    match key.code {
+                        KeyCode::Char(c) => {
+                            if c.is_digit(10) { input_buffer.push(c); } // Only allow numbers
+                        },
+                        KeyCode::Backspace => { input_buffer.pop(); },
+                        KeyCode::Enter => {
+                            let gas: u64 = input_buffer.parse().unwrap_or(25000);
+                            return Ok(Some((selected_program, gas)));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+// MAIN APPLICATION LOGIC -> EVM SCREEN
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, evm: &mut EVM, initial_gas: u64) -> io::Result<()> {
     // Track if an error happened
     let mut stop_reason: Option<String> = None;
@@ -87,7 +302,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, evm: &mut EVM, initial_gas: u
 
             let top_row = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(33), Constraint::Percentage(34), Constraint::Percentage(33)].as_ref())
+                .constraints([Constraint::Percentage(29), Constraint::Percentage(42), Constraint::Percentage(29)].as_ref())
                 .split(main_chunks[0]);
 
             let bottom_row = Layout::default()
@@ -180,16 +395,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, evm: &mut EVM, initial_gas: u
                 );
                 f.render_widget(Paragraph::new(status_text).block(status_block), bottom_row[1]);
             }
-            
-            // Popup logic
-            // if let Some(err_msg) = &stop_reason {
-            //     let area = centered_rect(60, 30, f.area());
-            //     let popup = Paragraph::new(format!("Execution Halted!\n\nReason: {}", err_msg))
-            //         .style(Style::default().bg(Color::Red).fg(Color::White))
-            //         .block(Block::default().borders(Borders::ALL).title(" ERROR "));
-            //     f.render_widget(Clear, area);
-            //     f.render_widget(popup, area);
-            // }
         })?;
 
         // ... [Keep Input Handling] ...

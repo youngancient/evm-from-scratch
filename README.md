@@ -2,18 +2,34 @@
 
 > A robust, clean-room implementation of the Ethereum Virtual Machine (EVM) built from scratch in Rust, featuring a custom interactive Terminal UI (TUI) debugger.
 
-## Visual Demo
-**Initial State**
-![EVM TUI Debugger Screenshot](./img/screenshot.png)
+## Setup Demo
 
-**Execution State**
-![EVM TUI Debugger Screenshot](./img/screenshot2.png)
+**Initial Setup**
+![EVM TUI Debugger Screenshot](./img/setup.png)
+
+**Bytecode sample selection**
+![EVM TUI Debugger Screenshot](./img/setup2.png)
+
+**Bytecode manual writing**
+![EVM TUI Debugger Screenshot](./img/bytecode_manual.png)
+
+**Gas setup**
+![EVM TUI Debugger Screenshot](./img/gas.png)
+
+
+## EVM Visual Demo
+
+**EVM Initial State**
+![EVM TUI Debugger Screenshot](./img/initial.png)
+
+**EVM Execution State**
+![EVM TUI Debugger Screenshot](./img/execution.png)
 
 **Success State**
-![EVM TUI Debugger Screenshot](./img/screenshot3.png)
+![EVM TUI Debugger Screenshot](./img/success.png)
 
 **Failed State**
-![EVM TUI Debugger Screenshot](./img/screenshot4.png)
+![EVM TUI Debugger Screenshot](./img/failed.png)
 
 *(screenshots of rsevm in execution)*
 
@@ -80,6 +96,8 @@ To run the TUI with the default bytecode program:
 ```bash
 cargo run --bin debug_tui
 ```
+Note: Expand your terminal for the best experience (avoid truncation)
+
 Controls:
 
 n: Step forward (Execute next opcode)
