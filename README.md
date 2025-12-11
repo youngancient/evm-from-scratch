@@ -2,18 +2,34 @@
 
 > A robust, clean-room implementation of the Ethereum Virtual Machine (EVM) built from scratch in Rust, featuring a custom interactive Terminal UI (TUI) debugger.
 
-## 📸 Visual Demo
-**Initial State**
-![EVM TUI Debugger Screenshot](./img/screenshot.png)
+## Setup Demo
 
-**Execution State**
-![EVM TUI Debugger Screenshot](./img/screenshot2.png)
+**Initial Setup**
+![EVM TUI Debugger Screenshot](./img/setup.png)
+
+**Bytecode sample selection**
+![EVM TUI Debugger Screenshot](./img/setup2.png)
+
+**Bytecode manual writing**
+![EVM TUI Debugger Screenshot](./img/bytecode_manual.png)
+
+**Gas setup**
+![EVM TUI Debugger Screenshot](./img/gas.png)
+
+
+## EVM Visual Demo
+
+**EVM Initial State**
+![EVM TUI Debugger Screenshot](./img/initial.png)
+
+**EVM Execution State**
+![EVM TUI Debugger Screenshot](./img/execution.png)
 
 **Success State**
-![EVM TUI Debugger Screenshot](./img/screenshot3.png)
+![EVM TUI Debugger Screenshot](./img/success.png)
 
 **Failed State**
-![EVM TUI Debugger Screenshot](./img/screenshot4.png)
+![EVM TUI Debugger Screenshot](./img/failed.png)
 
 *(screenshots of rsevm in execution)*
 
@@ -80,6 +96,8 @@ To run the TUI with the default bytecode program:
 ```bash
 cargo run --bin debug_tui
 ```
+Note: Expand your terminal for the best experience (avoid truncation)
+
 Controls:
 
 n: Step forward (Execute next opcode)
@@ -91,6 +109,24 @@ The project includes a comprehensive integration test suite for individual opcod
 ```bash
 cargo test
 ```
+
+## Contribution
+
+Contributions are welcome! The goal of **rsevm** is to be a robust educational tool that helps learners visualize and understand EVM bytecode execution.
+
+There are two primary ways you can contribute:
+
+### 1. Reporting Issues
+If you encounter unexpected behavior or bugs, please raise an issue.
+* **Bugs:** If the stack, memory, or storage isn't behaving as expected, let us know.
+* **Missing Opcodes:** This project supports opcodes up to the **Cancun** hardfork, but not all logic has been fully implemented yet. If you try to run bytecode and encounter an `Unknown Opcode` error, please open an issue specifying which opcode is missing.
+
+### 2. submitting Pull Requests
+Feel free to get your hands dirty and improve the codebase!
+1. **Fork** the repository.
+2. Create a new branch for your feature or fix.
+3. Implement the missing opcode or fix the bug (don't forget to add tests!).
+4. Submit a **Pull Request** detailing your changes.
 
 ## Acknowledgements
 
