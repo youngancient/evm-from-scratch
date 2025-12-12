@@ -87,7 +87,7 @@ Check `src/opcodes/opcodes.rs` for supported opcodes. This project supports EVM 
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/youngancient/rsevm.git](https://github.com/youngancient/rsevm.git)
+git clone https://github.com/youngancient/rsevm.git
 cd rsevm
 ```
 
